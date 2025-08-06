@@ -1,0 +1,29 @@
+{
+    "token_type": "Bearer",
+    "expires_at": 1754515551,
+    "expires_in": 21600,
+    "refresh_token": "xxxxtokenxxxx",
+    "access_token": "xxxxtokenxxxx",
+    "athlete": {
+        "id": 152130680,
+        "username": "shadan_kalam",
+        "resource_state": 2,
+        "firstname": "shadan",
+        "lastname": "k",
+        "bio": "shuru depression me kiya tha par ab maza aa rha hai ",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "country": "India",
+        "sex": "M",
+        "premium": false,
+        "summit": false,
+        "created_at": "2024-11-14T08:59:20Z",
+        "updated_at": "2025-08-04T04:38:51Z",
+        "badge_type_id": 0,
+        "weight": null,
+        "profile_medium": "https://dgalywyr863hv.cloudfront.net/pictures/athletes/152130680/34045278/1/medium.jpg",
+        "profile": "https://dgalywyr863hv.cloudfront.net/pictures/athletes/152130680/34045278/1/large.jpg",
+        "friend": null,
+        "follower": null
+    }
+}
