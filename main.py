@@ -1,13 +1,17 @@
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
-from app.auth import auth_router
+from app.auth_routes import auth_router
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(
+    title="StravaAI API",
+    description="AI-powered Strava analytics and insights",
+    version="1.0.0"
+)
 
 # CORS configuration for frontend integration
 app.add_middleware(
@@ -27,4 +31,19 @@ app.add_middleware(
 SESSION_SECRET = os.getenv("JWT_SECRET", "super-secret-session-key")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
+# Include authentication routes
 app.include_router(auth_router)
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "StravaAI API",
+        "version": "1.0.0",
+        "status": "running"
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
