@@ -1,7 +1,7 @@
 ---
 description:
 globs:
-alwaysApply: false
+alwaysApply: true
 ---
 ## VERY CRITICAL & IMPORTANT
 
@@ -16,6 +16,8 @@ You MUST follow the following guidelines:-
     -   In case you recieve the plan document, you must examine the plan in detail with a MVP focus.
     -   In case you dont recieve a plan document, you have to examine the users requirement with a MVP focus.
     -   Keep ```./requriements/``` in memory to have the overall picture of what you're building
+
+    - Keep consisten folder structure
 
 -   **Setup Project** - If project is not setup, setup project files and python environment, make sure you update requirements.txt before installing packages.
 
