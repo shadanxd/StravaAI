@@ -25,14 +25,14 @@ Robust data modeling and storage are foundational for StravaAI’s backend and A
 - Use normalized custom schemas for `users`, `activities`, and `insights` collections as defined in the technical specification.
 - Store all essential fields for analytics and AI, plus a `raw_data` field for the full Strava response.
 - Use MongoDB indexes on frequently queried fields (user_id, activity_id, dates).
-- Encrypt sensitive fields (tokens, PII).
 - Document schema for frontend and AI integration.
 
 ## Executive Checklist
-- [ ] Finalize MongoDB schemas for `users`, `activities`, and `insights` (per technical spec)
-- [ ] Implement schema validation (e.g., Pydantic models in FastAPI)
-- [ ] Add indexes for performance-critical fields
-- [ ] Encrypt sensitive fields (tokens, PII)
-- [ ] Store full Strava response in `raw_data` field
-- [ ] Document schema for frontend and AI teams
-- [ ] Ensure compatibility with analytics and AI modules
+- [x] Finalize MongoDB schemas for `users`, `activities`, and `insights` (per technical spec)
+- [x] Implement storing of refresh_token and access_token from authentication flow in the db and refactor auth flow based on storage of these tokens such that user does not have to reauthorise app
+- [x] Make sure if access_token exists and has expired refresh_token is used to update access_token
+- [x] Implement schema validation (e.g., Pydantic models in FastAPI)
+- [x] Add indexes for performance-critical fields
+- [x] Store full Strava response in `raw_data` field
+- [x] Document schema for frontend and AI teams
+- [x] Ensure compatibility with analytics and AI modules
