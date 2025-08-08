@@ -8,22 +8,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Get encryption key from environment or generate one
+# Use existing ENCRYPTION_KEY from .env
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 if not ENCRYPTION_KEY:
-    # Generate a key for development (should be set in production)
-    ENCRYPTION_KEY = Fernet.generate_key().decode()
-    print(f"Generated encryption key: {ENCRYPTION_KEY}")
+    raise ValueError("ENCRYPTION_KEY not found in .env file")
 
-# Create Fernet cipher
-try:
-    cipher = Fernet(ENCRYPTION_KEY.encode())
-except ValueError as e:
-    print(f"Invalid encryption key: {e}")
-    # Generate a new key if the current one is invalid
-    ENCRYPTION_KEY = Fernet.generate_key().decode()
-    print(f"Generated new encryption key: {ENCRYPTION_KEY}")
-    cipher = Fernet(ENCRYPTION_KEY.encode())
+# Create Fernet cipher using existing key
+cipher = Fernet(ENCRYPTION_KEY.encode())
 
 def encrypt_token(token: str) -> str:
     """Encrypt a token for secure storage"""
