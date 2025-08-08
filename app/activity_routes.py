@@ -20,6 +20,7 @@ from app.database.db_operations import (
 )
 from app.models.activity import ActivityUpdate
 from app.api.strava_client import StravaAPIClient
+from app.utils.json_serializer import serialize_activity
 
 # Create activity router
 activity_router = APIRouter(prefix="/api/activities", tags=["activities"])
@@ -55,25 +56,7 @@ async def get_activities(
         )
         
         # Transform activities for response
-        activity_list = []
-        for activity in activities:
-            activity_list.append({
-                "id": str(activity["_id"]),
-                "strava_id": activity["strava_id"],
-                "name": activity["name"],
-                "distance": activity["distance"],
-                "moving_time": activity["moving_time"],
-                "total_elevation_gain": activity["total_elevation_gain"],
-                "activity_type": activity["activity_type"],
-                "start_date": activity["start_date"],
-                "average_speed": activity.get("average_speed"),
-                "max_speed": activity.get("max_speed"),
-                "average_heartrate": activity.get("average_heartrate"),
-                "max_heartrate": activity.get("max_heartrate"),
-                "calories": activity.get("calories"),
-                "kudos_count": activity.get("kudos_count", 0),
-                "has_insights": bool(activity.get("insights"))
-            })
+        activity_list = [serialize_activity(activity) for activity in activities]
         
         return JSONResponse({
             "activities": activity_list,
@@ -111,52 +94,7 @@ async def get_activity(request: Request, activity_id: str):
             raise HTTPException(status_code=403, detail="Access denied")
         
         return JSONResponse({
-            "activity": {
-                "id": str(activity["_id"]),
-                "strava_id": activity["strava_id"],
-                "name": activity["name"],
-                "distance": activity["distance"],
-                "moving_time": activity["moving_time"],
-                "elapsed_time": activity["elapsed_time"],
-                "total_elevation_gain": activity["total_elevation_gain"],
-                "activity_type": activity["activity_type"],
-                "start_date": activity["start_date"],
-                "start_date_local": activity["start_date_local"],
-                "timezone": activity["timezone"],
-                "start_latlng": activity.get("start_latlng"),
-                "end_latlng": activity.get("end_latlng"),
-                "location_city": activity.get("location_city"),
-                "location_state": activity.get("location_state"),
-                "location_country": activity.get("location_country"),
-                "achievement_count": activity.get("achievement_count", 0),
-                "kudos_count": activity.get("kudos_count", 0),
-                "comment_count": activity.get("comment_count", 0),
-                "trainer": activity.get("trainer", False),
-                "commute": activity.get("commute", False),
-                "manual": activity.get("manual", False),
-                "private": activity.get("private", False),
-                "average_speed": activity.get("average_speed"),
-                "max_speed": activity.get("max_speed"),
-                "average_cadence": activity.get("average_cadence"),
-                "average_temp": activity.get("average_temp"),
-                "average_watts": activity.get("average_watts"),
-                "kilojoules": activity.get("kilojoules"),
-                "has_heartrate": activity.get("has_heartrate", False),
-                "average_heartrate": activity.get("average_heartrate"),
-                "max_heartrate": activity.get("max_heartrate"),
-                "elev_high": activity.get("elev_high"),
-                "elev_low": activity.get("elev_low"),
-                "suffer_score": activity.get("suffer_score"),
-                "description": activity.get("description"),
-                "calories": activity.get("calories"),
-                "segment_efforts": activity.get("segment_efforts"),
-                "best_efforts": activity.get("best_efforts"),
-                "gear_id": activity.get("gear_id"),
-                "photos": activity.get("photos"),
-                "insights": activity.get("insights"),
-                "created_at": activity.get("created_at"),
-                "updated_at": activity.get("updated_at")
-            }
+            "activity": serialize_activity(activity)
         })
     except HTTPException:
         raise
@@ -482,25 +420,7 @@ async def get_recent_activities(
         )
         
         # Transform activities for response
-        activity_list = []
-        for activity in activities:
-            activity_list.append({
-                "id": str(activity["_id"]),
-                "strava_id": activity["strava_id"],
-                "name": activity["name"],
-                "distance": activity["distance"],
-                "moving_time": activity["moving_time"],
-                "total_elevation_gain": activity["total_elevation_gain"],
-                "activity_type": activity["activity_type"],
-                "start_date": activity["start_date"],
-                "average_speed": activity.get("average_speed"),
-                "max_speed": activity.get("max_speed"),
-                "average_heartrate": activity.get("average_heartrate"),
-                "max_heartrate": activity.get("max_heartrate"),
-                "calories": activity.get("calories"),
-                "kudos_count": activity.get("kudos_count", 0),
-                "has_insights": bool(activity.get("insights"))
-            })
+        activity_list = [serialize_activity(activity) for activity in activities]
         
         return JSONResponse({
             "activities": activity_list,

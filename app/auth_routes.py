@@ -4,12 +4,13 @@ Handles all authentication-related endpoints with proper separation of JWT and S
 """
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from app.auth.jwt import create_jwt_token, validate_jwt_token
+from app.auth.jwt import create_jwt_token, validate_jwt_token, decode_jwt_token
 from app.auth.strava_oauth import strava_oauth_router
 from app.auth.middleware import get_current_user, get_optional_user
 from app.database.db_operations import get_user_by_strava_id
 from app.utils.encryption import decrypt_token
 from app.auth.strava_oauth import refresh_strava_access_token
+from app.utils.json_serializer import serialize_user
 from datetime import datetime
 
 # Create main auth router
@@ -65,22 +66,7 @@ async def get_user_info(request: Request):
                 return JSONResponse({"error": "Token expired and refresh failed"}, status_code=401)
         
         return JSONResponse({
-            "user": {
-                "id": user["strava_id"],
-                "username": user["username"],
-                "firstname": user["firstname"],
-                "lastname": user["lastname"],
-                "city": user.get("city"),
-                "country": user.get("country"),
-                "state": user.get("state"),
-                "email": user.get("email"),
-                "age": user.get("age"),
-                "weight": user.get("weight"),
-                "sex": user.get("sex"),
-                "profile": user.get("profile"),
-                "profile_medium": user.get("profile_medium"),
-                "milestones": user.get("milestones", [])
-            }
+            "user": serialize_user(user)
         })
     except HTTPException:
         raise
@@ -135,22 +121,7 @@ async def get_auth_status(request: Request):
         
         return JSONResponse({
             "authenticated": True,
-            "user": {
-                "id": user["strava_id"],
-                "username": user["username"],
-                "firstname": user["firstname"],
-                "lastname": user["lastname"],
-                "city": user.get("city"),
-                "country": user.get("country"),
-                "state": user.get("state"),
-                "email": user.get("email"),
-                "age": user.get("age"),
-                "weight": user.get("weight"),
-                "sex": user.get("sex"),
-                "profile": user.get("profile"),
-                "profile_medium": user.get("profile_medium"),
-                "milestones": user.get("milestones", [])
-            }
+            "user": serialize_user(user)
         })
     except Exception:
         return JSONResponse({"authenticated": False})

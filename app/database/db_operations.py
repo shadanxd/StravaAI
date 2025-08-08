@@ -58,14 +58,27 @@ async def update_user_tokens(
 
 async def update_user_profile(strava_id: int, profile_data: Dict[str, Any]) -> bool:
     """Update user profile information"""
+    # Create the update data explicitly
+    update_data = {
+        "username": profile_data.get("username"),
+        "firstname": profile_data.get("firstname"),
+        "lastname": profile_data.get("lastname"),
+        "city": profile_data.get("city"),
+        "country": profile_data.get("country"),
+        "state": profile_data.get("state"),
+        "sex": profile_data.get("sex"),
+        "weight": profile_data.get("weight"),
+        "profile": profile_data.get("profile"),
+        "profile_medium": profile_data.get("profile_medium"),
+        "updated_at": datetime.utcnow()
+    }
+    
+    # Remove None values
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+    
     result = await users_collection.update_one(
         {"strava_id": strava_id},
-        {
-            "$set": {
-                **profile_data,
-                "updated_at": datetime.utcnow()
-            }
-        }
+        {"$set": update_data}
     )
     return result.modified_count > 0
 
@@ -89,11 +102,11 @@ async def update_user_milestone(
     result = await users_collection.update_one(
         {
             "strava_id": strava_id,
-            "milestones._id": milestone_id
+            "milestones.id": milestone_id
         },
         {
             "$set": {
-                "milestones.$": {**milestone_data, "_id": milestone_id},
+                "milestones.$": {**milestone_data, "id": milestone_id},
                 "updated_at": datetime.utcnow()
             }
         }
@@ -105,7 +118,7 @@ async def delete_user_milestone(strava_id: int, milestone_id: str) -> bool:
     result = await users_collection.update_one(
         {"strava_id": strava_id},
         {
-            "$pull": {"milestones": {"_id": milestone_id}},
+            "$pull": {"milestones": {"id": milestone_id}},
             "$set": {"updated_at": datetime.utcnow()}
         }
     )

@@ -2,6 +2,7 @@
 User Models
 Pydantic models for user data validation
 """
+import uuid
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
@@ -48,11 +49,29 @@ class UserResponse(UserBase):
     updated_at: datetime = Field(..., description="Last update time")
     milestones: List[dict] = Field(default=[], description="User milestones")
 
-class Milestone(BaseModel):
-    """Model for user milestones"""
-    id: str = Field(..., description="Milestone ID")
+class MilestoneCreate(BaseModel):
+    """Model for creating a new milestone (ID auto-generated)"""
     title: str = Field(..., description="Milestone title")
     description: Optional[str] = Field(None, description="Milestone description")
     type: str = Field(..., description="Milestone type")
     achieved_at: datetime = Field(..., description="When milestone was achieved")
+    data: Optional[dict] = Field(None, description="Milestone data")
+
+class Milestone(BaseModel):
+    """Model for milestone responses (includes auto-generated ID)"""
+    id: str = Field(..., description="Auto-generated milestone ID")
+    title: str = Field(..., description="Milestone title")
+    description: Optional[str] = Field(None, description="Milestone description")
+    type: str = Field(..., description="Milestone type")
+    achieved_at: datetime = Field(..., description="When milestone was achieved")
+    data: Optional[dict] = Field(None, description="Milestone data")
+    created_at: Optional[datetime] = Field(None, description="Creation time")
+    updated_at: Optional[datetime] = Field(None, description="Last update time")
+
+class MilestoneUpdate(BaseModel):
+    """Model for updating a milestone (ID provided in URL)"""
+    title: Optional[str] = Field(None, description="Milestone title")
+    description: Optional[str] = Field(None, description="Milestone description")
+    type: Optional[str] = Field(None, description="Milestone type")
+    achieved_at: Optional[datetime] = Field(None, description="When milestone was achieved")
     data: Optional[dict] = Field(None, description="Milestone data")

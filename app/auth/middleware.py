@@ -87,6 +87,12 @@ async def validate_and_inject_user(request: Request):
                 "user_id": user["strava_id"],
                 "username": user["username"]
             }
+        else:
+            # JWT is valid, use the existing user_info
+            user_info = {
+                "user_id": user["strava_id"],
+                "username": user["username"]
+            }
         
         # Inject user into request state
         request.state.user = user
