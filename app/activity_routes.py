@@ -300,13 +300,25 @@ async def sync_activities_from_strava(
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=days_back)
         
-        # Get activities from Strava
+        # Get activities from Strava (paginate with max page size to minimize calls)
         strava_client = StravaAPIClient()
-        strava_activities = await strava_client.get_user_activities(
-            user=user,
-            after=int(start_date.timestamp()),
-            before=int(end_date.timestamp())
-        )
+        per_page = 200
+        page = 1
+        strava_activities: List[dict] = []
+        while True:
+            page_activities = await strava_client.get_user_activities(
+                user=user,
+                page=page,
+                per_page=per_page,
+                after=int(start_date.timestamp()),
+                before=int(end_date.timestamp()),
+            )
+            if not page_activities:
+                break
+            strava_activities.extend(page_activities)
+            if len(page_activities) < per_page:
+                break
+            page += 1
         
         if not strava_activities:
             return JSONResponse({
@@ -322,7 +334,9 @@ async def sync_activities_from_strava(
         activities_to_sync = []
         for activity in strava_activities:
             activity_data = {
-                "strava_id": activity["id"],
+                # Store both keys for compatibility with existing code and unique index
+                "strava_activity_id": int(activity["id"]),
+                "strava_id": int(activity["id"]),
                 "user_id": user_id,
                 "name": activity["name"],
                 "distance": activity["distance"],

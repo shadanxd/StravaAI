@@ -6,6 +6,7 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+from pymongo import UpdateOne
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -140,7 +141,12 @@ async def delete_user(strava_id: int) -> bool:
 # Activity operations
 async def get_activity_by_strava_id(strava_id: int) -> Optional[Dict[str, Any]]:
     """Get activity by Strava ID"""
-    activity = await activities_collection.find_one({"strava_id": strava_id})
+    activity = await activities_collection.find_one({
+        "$or": [
+            {"strava_activity_id": int(strava_id)},
+            {"strava_id": int(strava_id)},
+        ]
+    })
     return activity
 
 async def get_activity_by_id(activity_id: str) -> Optional[Dict[str, Any]]:
@@ -150,6 +156,12 @@ async def get_activity_by_id(activity_id: str) -> Optional[Dict[str, Any]]:
 
 async def create_activity(activity_data: Dict[str, Any]) -> str:
     """Create new activity in database"""
+    # Ensure consistent identifier fields
+    if activity_data.get("strava_activity_id") is None and activity_data.get("strava_id") is not None:
+        activity_data["strava_activity_id"] = int(activity_data["strava_id"])
+    if activity_data.get("strava_id") is None and activity_data.get("strava_activity_id") is not None:
+        activity_data["strava_id"] = int(activity_data["strava_activity_id"])
+
     activity_data["created_at"] = datetime.utcnow()
     activity_data["updated_at"] = datetime.utcnow()
     
@@ -161,8 +173,17 @@ async def update_activity(
     activity_data: Dict[str, Any]
 ) -> bool:
     """Update activity data"""
+    # Ensure both identifier fields stay in sync
+    if activity_data.get("strava_activity_id") is None and activity_data.get("strava_id") is not None:
+        activity_data["strava_activity_id"] = int(activity_data["strava_id"])
+    if activity_data.get("strava_id") is None and activity_data.get("strava_activity_id") is not None:
+        activity_data["strava_id"] = int(activity_data["strava_activity_id"])
+
     result = await activities_collection.update_one(
-        {"strava_id": strava_id},
+        {"$or": [
+            {"strava_activity_id": int(strava_id)},
+            {"strava_id": int(strava_id)},
+        ]},
         {
             "$set": {
                 **activity_data,
@@ -282,27 +303,52 @@ async def get_user_most_elevation_activity(user_id: int) -> Optional[Dict[str, A
     return activity
 
 async def sync_user_activities(user_id: int, activities: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Sync activities for a user (upsert)"""
-    created_count = 0
-    updated_count = 0
-    
+    """Sync activities for a user using bulk upsert to avoid duplicates and minimize round-trips."""
+    if not activities:
+        return {"created": 0, "updated": 0, "total": 0}
+
+    # Prepare bulk operations using the unique Strava activity identifier
+    operations: List[UpdateOne] = []
     for activity in activities:
-        strava_id = activity["strava_id"]
-        existing_activity = await get_activity_by_strava_id(strava_id)
-        
-        if existing_activity:
-            # Update existing activity
-            await update_activity(strava_id, activity)
-            updated_count += 1
-        else:
-            # Create new activity
-            await create_activity(activity)
-            created_count += 1
-    
+        # Backward/forward compatibility: prefer `strava_activity_id` if present, else use `strava_id`
+        strava_activity_id = activity.get("strava_activity_id") or activity.get("strava_id")
+        if strava_activity_id is None:
+            # Skip malformed records that would violate unique index (null)
+            continue
+
+        # Ensure both fields are stored for consistency with docs/indexes and existing code paths
+        activity["strava_activity_id"] = int(strava_activity_id)
+        activity["strava_id"] = int(strava_activity_id)
+
+        # Always maintain timestamps
+        activity["updated_at"] = datetime.utcnow()
+        if "created_at" not in activity:
+            activity["created_at"] = datetime.utcnow()
+
+        operations.append(
+            UpdateOne(
+                {"$or": [
+                    {"strava_activity_id": int(strava_activity_id)},
+                    {"strava_id": int(strava_activity_id)},
+                ]},
+                {"$set": activity},
+                upsert=True,
+            )
+        )
+
+    if not operations:
+        return {"created": 0, "updated": 0, "total": 0}
+
+    result = await activities_collection.bulk_write(operations, ordered=False)
+
+    # Best-effort counts
+    created_count = getattr(result, "upserted_count", 0) or 0
+    updated_count = (getattr(result, "modified_count", 0) or 0)
+
     return {
         "created": created_count,
         "updated": updated_count,
-        "total": len(activities)
+        "total": created_count + updated_count,
     }
 
 async def delete_activity(strava_id: int) -> bool:
