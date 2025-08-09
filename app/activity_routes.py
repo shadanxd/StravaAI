@@ -5,7 +5,7 @@ Handles all activity-related endpoints
 from fastapi import APIRouter, Request, HTTPException, Depends, Query, Path
 from fastapi.responses import JSONResponse
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.auth.middleware import get_current_user
 from app.database.db_operations import (
     get_user_by_strava_id,
@@ -21,6 +21,8 @@ from app.database.db_operations import (
 from app.models.activity import ActivityUpdate
 from app.api.strava_client import StravaAPIClient
 from app.utils.json_serializer import serialize_activity, to_json_serializable
+from app.ai.insight_service import InsightService
+import os
 
 # Create activity router
 activity_router = APIRouter(prefix="/api/activities", tags=["activities"])
@@ -277,7 +279,7 @@ async def get_activity_stats(request: Request):
 @activity_router.post("/sync")
 async def sync_activities_from_strava(
     request: Request,
-    days_back: int = Query(30, ge=1, le=365, description="Number of days to sync back")
+    days_back: int = Query(180, ge=1, le=365, description="Number of days to sync back")
 ):
     """Sync activities from Strava API"""
     try:
@@ -291,7 +293,8 @@ async def sync_activities_from_strava(
             raise HTTPException(status_code=404, detail="User not found")
         
         # Calculate date range
-        end_date = datetime.utcnow()
+        # Use timezone-aware UTC to avoid epoch skew
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days_back)
         
         # Get activities from Strava (paginate with max page size to minimize calls)
@@ -305,7 +308,7 @@ async def sync_activities_from_strava(
                 page=page,
                 per_page=per_page,
                 after=int(start_date.timestamp()),
-                before=int(end_date.timestamp()),
+                before=None,
             )
             if not page_activities:
                 break
@@ -389,10 +392,20 @@ async def sync_activities_from_strava(
         
         # Sync activities to database
         sync_result = await sync_user_activities(user_id, activities_to_sync)
+        # Optionally generate insights for the most recent activities lacking insights (MVP)
+        try:
+            if os.getenv("AI_INSIGHTS_ENABLED", "true").lower() == "true":
+                ai_service = InsightService()
+                ai_generation = await ai_service.generate_recent_activities_bulk(user_id=user_id, limit=5)
+            else:
+                ai_generation = {"generated": 0, "requested": 0}
+        except Exception:
+            ai_generation = {"generated": 0, "requested": 0}
         
         return JSONResponse({
             "message": "Activities synced successfully",
             "sync_result": sync_result,
+            "ai_generation": ai_generation,
             "date_range": {
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
