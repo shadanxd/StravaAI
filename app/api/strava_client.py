@@ -56,13 +56,39 @@ class StravaAPIClient(BaseAPIClient):
     async def get_user_profile(self, user: Dict[str, Any]) -> Dict[str, Any]:
         """Get user profile from Strava API"""
         access_token = await self.get_valid_access_token(user)
-        
+
         headers = {"Authorization": f"Bearer {access_token}"}
-        return await self.make_request(
-            method="GET",
-            url=f"{self.base_url}/athlete",
-            headers=headers
-        )
+        try:
+            return await self.make_request(
+                method="GET",
+                url=f"{self.base_url}/athlete",
+                headers=headers
+            )
+        except Exception as e:
+            # If unauthorized, try a one-time refresh and retry
+            if getattr(e, "status_code", None) == 401:
+                decrypted_refresh_token = decrypt_token(user["refresh_token"])
+                refreshed_tokens = await refresh_strava_access_token(decrypted_refresh_token)
+                if not refreshed_tokens:
+                    raise
+                # Persist new tokens
+                from app.utils.encryption import encrypt_token
+                encrypted_access_token = encrypt_token(refreshed_tokens.get("access_token"))
+                encrypted_refresh_token = encrypt_token(refreshed_tokens.get("refresh_token"))
+                await update_user_tokens(
+                    strava_id=user["strava_id"],
+                    access_token=encrypted_access_token,
+                    refresh_token=encrypted_refresh_token,
+                    expires_at=datetime.fromtimestamp(refreshed_tokens.get("expires_at"))
+                )
+                # Retry once
+                headers = {"Authorization": f"Bearer {refreshed_tokens.get('access_token')}"}
+                return await self.make_request(
+                    method="GET",
+                    url=f"{self.base_url}/athlete",
+                    headers=headers
+                )
+            raise
     
     async def get_user_activities(
         self,
@@ -74,7 +100,7 @@ class StravaAPIClient(BaseAPIClient):
     ) -> List[Dict[str, Any]]:
         """Get user activities from Strava API"""
         access_token = await self.get_valid_access_token(user)
-        
+
         headers = {"Authorization": f"Bearer {access_token}"}
         params = {
             "page": page,
@@ -86,12 +112,36 @@ class StravaAPIClient(BaseAPIClient):
         if before:
             params["before"] = before
         
-        return await self.make_request(
-            method="GET",
-            url=f"{self.base_url}/athlete/activities",
-            headers=headers,
-            params=params
-        )
+        try:
+            return await self.make_request(
+                method="GET",
+                url=f"{self.base_url}/athlete/activities",
+                headers=headers,
+                params=params
+            )
+        except Exception as e:
+            if getattr(e, "status_code", None) == 401:
+                decrypted_refresh_token = decrypt_token(user["refresh_token"])
+                refreshed_tokens = await refresh_strava_access_token(decrypted_refresh_token)
+                if not refreshed_tokens:
+                    raise
+                from app.utils.encryption import encrypt_token
+                encrypted_access_token = encrypt_token(refreshed_tokens.get("access_token"))
+                encrypted_refresh_token = encrypt_token(refreshed_tokens.get("refresh_token"))
+                await update_user_tokens(
+                    strava_id=user["strava_id"],
+                    access_token=encrypted_access_token,
+                    refresh_token=encrypted_refresh_token,
+                    expires_at=datetime.fromtimestamp(refreshed_tokens.get("expires_at"))
+                )
+                headers = {"Authorization": f"Bearer {refreshed_tokens.get('access_token')}"}
+                return await self.make_request(
+                    method="GET",
+                    url=f"{self.base_url}/athlete/activities",
+                    headers=headers,
+                    params=params
+                )
+            raise
     
     async def get_activity_details(
         self,
@@ -100,13 +150,36 @@ class StravaAPIClient(BaseAPIClient):
     ) -> Dict[str, Any]:
         """Get detailed activity information"""
         access_token = await self.get_valid_access_token(user)
-        
+
         headers = {"Authorization": f"Bearer {access_token}"}
-        return await self.make_request(
-            method="GET",
-            url=f"{self.base_url}/activities/{activity_id}",
-            headers=headers
-        )
+        try:
+            return await self.make_request(
+                method="GET",
+                url=f"{self.base_url}/activities/{activity_id}",
+                headers=headers
+            )
+        except Exception as e:
+            if getattr(e, "status_code", None) == 401:
+                decrypted_refresh_token = decrypt_token(user["refresh_token"])
+                refreshed_tokens = await refresh_strava_access_token(decrypted_refresh_token)
+                if not refreshed_tokens:
+                    raise
+                from app.utils.encryption import encrypt_token
+                encrypted_access_token = encrypt_token(refreshed_tokens.get("access_token"))
+                encrypted_refresh_token = encrypt_token(refreshed_tokens.get("refresh_token"))
+                await update_user_tokens(
+                    strava_id=user["strava_id"],
+                    access_token=encrypted_access_token,
+                    refresh_token=encrypted_refresh_token,
+                    expires_at=datetime.fromtimestamp(refreshed_tokens.get("expires_at"))
+                )
+                headers = {"Authorization": f"Bearer {refreshed_tokens.get('access_token')}"}
+                return await self.make_request(
+                    method="GET",
+                    url=f"{self.base_url}/activities/{activity_id}",
+                    headers=headers
+                )
+            raise
     
     async def get_activity_streams(
         self,
@@ -116,27 +189,74 @@ class StravaAPIClient(BaseAPIClient):
     ) -> Dict[str, Any]:
         """Get activity streams (GPS data, heart rate, etc.)"""
         access_token = await self.get_valid_access_token(user)
-        
+
         headers = {"Authorization": f"Bearer {access_token}"}
         params = {}
         
         if keys:
             params["keys"] = ",".join(keys)
         
-        return await self.make_request(
-            method="GET",
-            url=f"{self.base_url}/activities/{activity_id}/streams",
-            headers=headers,
-            params=params
-        )
+        try:
+            return await self.make_request(
+                method="GET",
+                url=f"{self.base_url}/activities/{activity_id}/streams",
+                headers=headers,
+                params=params
+            )
+        except Exception as e:
+            if getattr(e, "status_code", None) == 401:
+                decrypted_refresh_token = decrypt_token(user["refresh_token"])
+                refreshed_tokens = await refresh_strava_access_token(decrypted_refresh_token)
+                if not refreshed_tokens:
+                    raise
+                from app.utils.encryption import encrypt_token
+                encrypted_access_token = encrypt_token(refreshed_tokens.get("access_token"))
+                encrypted_refresh_token = encrypt_token(refreshed_tokens.get("refresh_token"))
+                await update_user_tokens(
+                    strava_id=user["strava_id"],
+                    access_token=encrypted_access_token,
+                    refresh_token=encrypted_refresh_token,
+                    expires_at=datetime.fromtimestamp(refreshed_tokens.get("expires_at"))
+                )
+                headers = {"Authorization": f"Bearer {refreshed_tokens.get('access_token')}"}
+                return await self.make_request(
+                    method="GET",
+                    url=f"{self.base_url}/activities/{activity_id}/streams",
+                    headers=headers,
+                    params=params
+                )
+            raise
     
     async def get_user_stats(self, user: Dict[str, Any]) -> Dict[str, Any]:
         """Get user statistics and totals"""
         access_token = await self.get_valid_access_token(user)
-        
+
         headers = {"Authorization": f"Bearer {access_token}"}
-        return await self.make_request(
-            method="GET",
-            url=f"{self.base_url}/athletes/{user['strava_id']}/stats",
-            headers=headers
-        )
+        try:
+            return await self.make_request(
+                method="GET",
+                url=f"{self.base_url}/athletes/{user['strava_id']}/stats",
+                headers=headers
+            )
+        except Exception as e:
+            if getattr(e, "status_code", None) == 401:
+                decrypted_refresh_token = decrypt_token(user["refresh_token"])
+                refreshed_tokens = await refresh_strava_access_token(decrypted_refresh_token)
+                if not refreshed_tokens:
+                    raise
+                from app.utils.encryption import encrypt_token
+                encrypted_access_token = encrypt_token(refreshed_tokens.get("access_token"))
+                encrypted_refresh_token = encrypt_token(refreshed_tokens.get("refresh_token"))
+                await update_user_tokens(
+                    strava_id=user["strava_id"],
+                    access_token=encrypted_access_token,
+                    refresh_token=encrypted_refresh_token,
+                    expires_at=datetime.fromtimestamp(refreshed_tokens.get("expires_at"))
+                )
+                headers = {"Authorization": f"Bearer {refreshed_tokens.get('access_token')}"}
+                return await self.make_request(
+                    method="GET",
+                    url=f"{self.base_url}/athletes/{user['strava_id']}/stats",
+                    headers=headers
+                )
+            raise

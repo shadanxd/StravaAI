@@ -4,7 +4,13 @@ Handles JWT token extraction from session cookies and user context injection
 """
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
-from app.auth.jwt import validate_jwt_token, is_jwt_token_expired, create_jwt_token, decode_jwt_token
+from app.auth.jwt import (
+    validate_jwt_token,
+    is_jwt_token_expired,
+    create_jwt_token,
+    decode_jwt_token,
+    decode_jwt_token_allow_expired,
+)
 from app.database.db_operations import get_user_by_strava_id
 from app.utils.encryption import decrypt_token, encrypt_token
 from app.auth.strava_oauth import refresh_strava_access_token, is_strava_token_expired
@@ -12,11 +18,18 @@ from app.database.db_operations import update_user_tokens
 from datetime import datetime
 
 async def extract_jwt_from_session(request: Request):
-    """Extract JWT token from session cookies"""
+    """Extract JWT token from session cookies or Authorization header (Bearer)."""
+    # Prefer session cookie
     jwt_token = request.session.get("jwt_token")
-    if not jwt_token:
-        return None
-    return jwt_token
+    if jwt_token:
+        return jwt_token
+
+    # Fallback to Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+        return token or None
+    return None
 
 async def validate_and_inject_user(request: Request):
     """Validate JWT token and inject user context into request"""
@@ -31,9 +44,9 @@ async def validate_and_inject_user(request: Request):
             user_id = user_info.get("user_id")
             jwt_expired = False
         except HTTPException:
-            # JWT is expired, try to decode it without validation to get user_id
+            # JWT is expired, decode without verifying exp to recover user_id
             try:
-                payload = decode_jwt_token(jwt_token)
+                payload = decode_jwt_token_allow_expired(jwt_token)
                 user_id = payload.get("user_id")
                 jwt_expired = True
                 if not user_id:

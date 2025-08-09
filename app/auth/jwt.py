@@ -55,3 +55,21 @@ def is_jwt_token_expired(token: str):
         return True
     except pyjwt.InvalidTokenError:
         return True
+
+def decode_jwt_token_allow_expired(token: str):
+    """Decode JWT token but ignore expiration to recover payload (e.g., to refresh).
+
+    SECURITY NOTE: Only use this server-side when you intend to immediately re-issue
+    a new JWT or to look up the user for a server-side token refresh. Do not use
+    the result of this function to authorize requests.
+    """
+    try:
+        payload = pyjwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_exp": False}
+        )
+        return payload
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")

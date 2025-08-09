@@ -4,7 +4,12 @@ Handles all authentication-related endpoints with proper separation of JWT and S
 """
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from app.auth.jwt import create_jwt_token, validate_jwt_token, decode_jwt_token
+from app.auth.jwt import (
+    create_jwt_token,
+    validate_jwt_token,
+    decode_jwt_token,
+    decode_jwt_token_allow_expired,
+)
 from app.auth.strava_oauth import strava_oauth_router
 from app.auth.middleware import get_current_user, get_optional_user
 from app.database.db_operations import get_user_by_strava_id
@@ -146,9 +151,9 @@ async def refresh_tokens(request: Request):
             user_info = validate_jwt_token(jwt_token)
             user_id = user_info.get("user_id")
         except HTTPException:
-            # JWT is expired, try to decode it without validation to get user_id
+            # JWT is expired, try to decode it without verifying exp to get user_id
             try:
-                payload = decode_jwt_token(jwt_token)
+                payload = decode_jwt_token_allow_expired(jwt_token)
                 user_id = payload.get("user_id")
                 if not user_id:
                     return JSONResponse({"error": "Invalid JWT token"}, status_code=401)
@@ -163,7 +168,19 @@ async def refresh_tokens(request: Request):
         # Check if Strava tokens are expired
         from app.auth.strava_oauth import is_strava_token_expired
         
-        if is_strava_token_expired({"expires_at": user["token_expires_at"].timestamp()}):
+        # Support optional force refresh via query param or body
+        force_param = request.query_params.get("force")
+        force_refresh = False
+        if force_param is not None:
+            force_refresh = force_param.lower() in ("1", "true", "yes")
+        else:
+            try:
+                body = await request.json()
+                force_refresh = bool(body.get("force"))
+            except Exception:
+                force_refresh = False
+
+        if force_refresh or is_strava_token_expired({"expires_at": user["token_expires_at"].timestamp()}):
             # Decrypt refresh token
             decrypted_refresh_token = decrypt_token(user["refresh_token"])
             if not decrypted_refresh_token:
