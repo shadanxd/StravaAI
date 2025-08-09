@@ -280,6 +280,167 @@ async def get_user_activity_stats(
         "average_time": average_time,
     }
 
+async def get_analytics_summary(
+    user_id: int,
+    after: Optional[datetime] = None,
+    before: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Return overall and per-sport analytics for a user within an optional date range.
+
+    Uses a single $facet pipeline to compute totals and per-activity_type breakdown.
+    """
+    match: Dict[str, Any] = {"user_id": user_id}
+    if after:
+        match.setdefault("start_date", {})["$gte"] = after
+    if before:
+        match.setdefault("start_date", {})["$lte"] = before
+
+    pipeline = [
+        {"$match": match},
+        {
+            "$facet": {
+                "summary": [
+                    {
+                        "$group": {
+                            "_id": None,
+                            "total_activities": {"$sum": 1},
+                            "total_distance": {"$sum": "$distance"},
+                            "total_time": {"$sum": "$moving_time"},
+                            "total_elevation": {"$sum": "$total_elevation_gain"},
+                            "total_calories": {"$sum": {"$ifNull": ["$calories", 0]}},
+                        }
+                    }
+                ],
+                "by_sport": [
+                    {
+                        "$group": {
+                            "_id": "$activity_type",
+                            "total_activities": {"$sum": 1},
+                            "total_distance": {"$sum": "$distance"},
+                            "total_time": {"$sum": "$moving_time"},
+                            "total_elevation": {"$sum": "$total_elevation_gain"},
+                            "total_calories": {"$sum": {"$ifNull": ["$calories", 0]}},
+                        }
+                    },
+                    {"$sort": {"_id": 1}},
+                ],
+            }
+        },
+    ]
+
+    result = await activities_collection.aggregate(pipeline).to_list(length=1)
+    if not result:
+        base = {
+            "total_activities": 0,
+            "total_distance": 0,
+            "total_time": 0,
+            "total_elevation": 0,
+            "total_calories": 0,
+        }
+        return {"summary": {**base, "average_distance": 0, "average_time": 0}, "by_sport": []}
+
+    data = result[0]
+    summary_raw = (data.get("summary") or [{}])[0] if data.get("summary") else {}
+    total_activities = summary_raw.get("total_activities", 0) or 0
+    average_distance = (
+        (summary_raw.get("total_distance", 0) or 0) / total_activities if total_activities > 0 else 0
+    )
+    average_time = (
+        (summary_raw.get("total_time", 0) or 0) / total_activities if total_activities > 0 else 0
+    )
+
+    summary = {
+        "total_activities": total_activities,
+        "total_distance": summary_raw.get("total_distance", 0) or 0,
+        "total_time": summary_raw.get("total_time", 0) or 0,
+        "total_elevation": summary_raw.get("total_elevation", 0) or 0,
+        "total_calories": summary_raw.get("total_calories", 0) or 0,
+        "average_distance": average_distance,
+        "average_time": average_time,
+    }
+
+    by_sport_docs: List[Dict[str, Any]] = data.get("by_sport") or []
+    by_sport: List[Dict[str, Any]] = []
+    for doc in by_sport_docs:
+        cnt = doc.get("total_activities", 0) or 0
+        by_sport.append(
+            {
+                "activity_type": doc.get("_id"),
+                "total_activities": cnt,
+                "total_distance": doc.get("total_distance", 0) or 0,
+                "total_time": doc.get("total_time", 0) or 0,
+                "total_elevation": doc.get("total_elevation", 0) or 0,
+                "total_calories": doc.get("total_calories", 0) or 0,
+                "average_distance": (doc.get("total_distance", 0) or 0) / cnt if cnt > 0 else 0,
+                "average_time": (doc.get("total_time", 0) or 0) / cnt if cnt > 0 else 0,
+            }
+        )
+
+    return {"summary": summary, "by_sport": by_sport}
+
+async def get_trend_timeseries(
+    user_id: int,
+    metric: str = "distance",
+    after: Optional[datetime] = None,
+    before: Optional[datetime] = None,
+    period: str = "day",
+    activity_type: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Return a timeseries for the selected metric aggregated by day/week/month.
+
+    Supported metrics: distance, time, elevation, calories, count.
+    Supported periods: day, week, month.
+    """
+    metric_field_map = {
+        "distance": "$distance",
+        "time": "$moving_time",
+        "elevation": "$total_elevation_gain",
+        "calories": {"$ifNull": ["$calories", 0]},
+    }
+
+    match: Dict[str, Any] = {"user_id": user_id}
+    if activity_type:
+        match["activity_type"] = activity_type
+    if after:
+        match.setdefault("start_date", {})["$gte"] = after
+    if before:
+        match.setdefault("start_date", {})["$lte"] = before
+
+    if period not in {"day", "week", "month"}:
+        period = "day"
+
+    # Use $dateTrunc (MongoDB 5+) for clean period grouping
+    date_trunc_unit = period
+    period_expr = {"$dateTrunc": {"date": "$start_date", "unit": date_trunc_unit, "timezone": "UTC"}}
+
+    if metric == "count":
+        value_expr: Any = 1
+    else:
+        value_expr = metric_field_map.get(metric, "$distance")
+
+    pipeline = [
+        {"$match": match},
+        {
+            "$group": {
+                "_id": period_expr,
+                "value": {"$sum": value_expr},
+                "count": {"$sum": 1},
+            }
+        },
+        {"$sort": {"_id": 1}},
+        {
+            "$project": {
+                "_id": 0,
+                "period_start": "$_id",
+                "value": "$value",
+                "count": "$count",
+            }
+        },
+    ]
+
+    docs = await activities_collection.aggregate(pipeline).to_list(length=None)
+    return docs
+
 async def get_user_longest_activity(
     user_id: int,
     activity_type: Optional[str] = None,

@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth_routes import auth_router
+from app.user_routes import user_router
+from app.analytics_routes import analytics_router
+from app.activity_routes import activity_router
 import os
 from dotenv import load_dotenv
 
@@ -31,8 +34,11 @@ app.add_middleware(
 SESSION_SECRET = os.getenv("JWT_SECRET", "super-secret-session-key")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
-# Include authentication routes
+# Include routers
 app.include_router(auth_router)
+app.include_router(user_router)
+app.include_router(activity_router)
+app.include_router(analytics_router)
 
 @app.get("/")
 async def root():
