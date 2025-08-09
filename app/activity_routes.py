@@ -2,7 +2,7 @@
 Activity Routes
 Handles all activity-related endpoints
 """
-from fastapi import APIRouter, Request, HTTPException, Depends, Query
+from fastapi import APIRouter, Request, HTTPException, Depends, Query, Path
 from fastapi.responses import JSONResponse
 from typing import Optional, List
 from datetime import datetime, timedelta
@@ -20,7 +20,7 @@ from app.database.db_operations import (
 )
 from app.models.activity import ActivityUpdate
 from app.api.strava_client import StravaAPIClient
-from app.utils.json_serializer import serialize_activity
+from app.utils.json_serializer import serialize_activity, to_json_serializable
 
 # Create activity router
 activity_router = APIRouter(prefix="/api/activities", tags=["activities"])
@@ -71,8 +71,8 @@ async def get_activities(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get activities: {str(e)}")
 
-@activity_router.get("/{activity_id}")
-async def get_activity(request: Request, activity_id: str):
+@activity_router.get("/id/{activity_id}")
+async def get_activity(request: Request, activity_id: str = Path(..., description="Internal activity ID (Mongo ObjectId)")):
     """Get detailed information about a specific activity"""
     try:
         # Get user from JWT token
@@ -123,54 +123,56 @@ async def get_activity_by_strava_id_endpoint(request: Request, strava_id: int):
         if activity["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        return JSONResponse({
-            "activity": {
-                "id": str(activity["_id"]),
-                "strava_id": activity["strava_id"],
-                "name": activity["name"],
-                "distance": activity["distance"],
-                "moving_time": activity["moving_time"],
-                "elapsed_time": activity["elapsed_time"],
-                "total_elevation_gain": activity["total_elevation_gain"],
-                "activity_type": activity["activity_type"],
-                "start_date": activity["start_date"],
-                "start_date_local": activity["start_date_local"],
-                "timezone": activity["timezone"],
-                "start_latlng": activity.get("start_latlng"),
-                "end_latlng": activity.get("end_latlng"),
-                "location_city": activity.get("location_city"),
-                "location_state": activity.get("location_state"),
-                "location_country": activity.get("location_country"),
-                "achievement_count": activity.get("achievement_count", 0),
-                "kudos_count": activity.get("kudos_count", 0),
-                "comment_count": activity.get("comment_count", 0),
-                "trainer": activity.get("trainer", False),
-                "commute": activity.get("commute", False),
-                "manual": activity.get("manual", False),
-                "private": activity.get("private", False),
-                "average_speed": activity.get("average_speed"),
-                "max_speed": activity.get("max_speed"),
-                "average_cadence": activity.get("average_cadence"),
-                "average_temp": activity.get("average_temp"),
-                "average_watts": activity.get("average_watts"),
-                "kilojoules": activity.get("kilojoules"),
-                "has_heartrate": activity.get("has_heartrate", False),
-                "average_heartrate": activity.get("average_heartrate"),
-                "max_heartrate": activity.get("max_heartrate"),
-                "elev_high": activity.get("elev_high"),
-                "elev_low": activity.get("elev_low"),
-                "suffer_score": activity.get("suffer_score"),
-                "description": activity.get("description"),
-                "calories": activity.get("calories"),
-                "segment_efforts": activity.get("segment_efforts"),
-                "best_efforts": activity.get("best_efforts"),
-                "gear_id": activity.get("gear_id"),
-                "photos": activity.get("photos"),
-                "insights": activity.get("insights"),
-                "created_at": activity.get("created_at"),
-                "updated_at": activity.get("updated_at")
-            }
-        })
+        return JSONResponse(
+            to_json_serializable({
+                "activity": {
+                    "id": str(activity["_id"]),
+                    "strava_id": activity["strava_id"],
+                    "name": activity["name"],
+                    "distance": activity["distance"],
+                    "moving_time": activity["moving_time"],
+                    "elapsed_time": activity["elapsed_time"],
+                    "total_elevation_gain": activity["total_elevation_gain"],
+                    "activity_type": activity["activity_type"],
+                    "start_date": activity["start_date"],
+                    "start_date_local": activity["start_date_local"],
+                    "timezone": activity["timezone"],
+                    "start_latlng": activity.get("start_latlng"),
+                    "end_latlng": activity.get("end_latlng"),
+                    "location_city": activity.get("location_city"),
+                    "location_state": activity.get("location_state"),
+                    "location_country": activity.get("location_country"),
+                    "achievement_count": activity.get("achievement_count", 0),
+                    "kudos_count": activity.get("kudos_count", 0),
+                    "comment_count": activity.get("comment_count", 0),
+                    "trainer": activity.get("trainer", False),
+                    "commute": activity.get("commute", False),
+                    "manual": activity.get("manual", False),
+                    "private": activity.get("private", False),
+                    "average_speed": activity.get("average_speed"),
+                    "max_speed": activity.get("max_speed"),
+                    "average_cadence": activity.get("average_cadence"),
+                    "average_temp": activity.get("average_temp"),
+                    "average_watts": activity.get("average_watts"),
+                    "kilojoules": activity.get("kilojoules"),
+                    "has_heartrate": activity.get("has_heartrate", False),
+                    "average_heartrate": activity.get("average_heartrate"),
+                    "max_heartrate": activity.get("max_heartrate"),
+                    "elev_high": activity.get("elev_high"),
+                    "elev_low": activity.get("elev_low"),
+                    "suffer_score": activity.get("suffer_score"),
+                    "description": activity.get("description"),
+                    "calories": activity.get("calories"),
+                    "segment_efforts": activity.get("segment_efforts"),
+                    "best_efforts": activity.get("best_efforts"),
+                    "gear_id": activity.get("gear_id"),
+                    "photos": activity.get("photos"),
+                    "insights": activity.get("insights"),
+                    "created_at": activity.get("created_at"),
+                    "updated_at": activity.get("updated_at")
+                }
+            })
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -178,103 +180,95 @@ async def get_activity_by_strava_id_endpoint(request: Request, strava_id: int):
 
 @activity_router.get("/stats/summary")
 async def get_activity_stats(request: Request):
-    """Get activity statistics for current user"""
+    """Get activity statistics for current user (last 30 days), split by Run, Ride, Swim."""
     try:
-        # Get user from JWT token
         user_info = await get_current_user(request)
         user_id = user_info.get("user_id")
-        
-        # Get user from database
+
         user = await get_user_by_strava_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        # Get activity statistics
-        stats = await get_user_activity_stats(user_id)
-        
-        # Get notable activities
-        longest_activity = await get_user_longest_activity(user_id)
-        fastest_activity = await get_user_fastest_activity(user_id)
-        most_elevation_activity = await get_user_most_elevation_activity(user_id)
-        
-        # Transform notable activities
-        longest_summary = None
-        if longest_activity:
-            longest_summary = {
-                "id": str(longest_activity["_id"]),
-                "strava_id": longest_activity["strava_id"],
-                "name": longest_activity["name"],
-                "distance": longest_activity["distance"],
-                "moving_time": longest_activity["moving_time"],
-                "total_elevation_gain": longest_activity["total_elevation_gain"],
-                "activity_type": longest_activity["activity_type"],
-                "start_date": longest_activity["start_date"],
-                "average_speed": longest_activity.get("average_speed"),
-                "max_speed": longest_activity.get("max_speed"),
-                "average_heartrate": longest_activity.get("average_heartrate"),
-                "max_heartrate": longest_activity.get("max_heartrate"),
-                "calories": longest_activity.get("calories"),
-                "kudos_count": longest_activity.get("kudos_count", 0),
-                "has_insights": bool(longest_activity.get("insights"))
+
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=30)
+
+        async def build_sport_summary(sport: str):
+            sport_stats = await get_user_activity_stats(
+                user_id,
+                activity_type=sport,
+                after=start_date,
+                before=end_date,
+            )
+            longest = await get_user_longest_activity(
+                user_id,
+                activity_type=sport,
+                after=start_date,
+                before=end_date,
+            )
+            fastest = await get_user_fastest_activity(
+                user_id,
+                activity_type=sport,
+                after=start_date,
+                before=end_date,
+            )
+            most_elev = await get_user_most_elevation_activity(
+                user_id,
+                activity_type=sport,
+                after=start_date,
+                before=end_date,
+            )
+
+            sport_stats["average_distance"] = round(sport_stats.get("average_distance", 0), 2)
+            sport_stats["average_time"] = round(sport_stats.get("average_time", 0), 2)
+
+            def summarize_activity(a):
+                if not a:
+                    return None
+                return {
+                    "id": str(a.get("_id")),
+                    "strava_id": a.get("strava_id"),
+                    "name": a.get("name"),
+                    "distance": a.get("distance"),
+                    "moving_time": a.get("moving_time"),
+                    "total_elevation_gain": a.get("total_elevation_gain"),
+                    "activity_type": a.get("activity_type"),
+                    "start_date": a.get("start_date"),
+                    "average_speed": a.get("average_speed"),
+                    "max_speed": a.get("max_speed"),
+                    "average_heartrate": a.get("average_heartrate"),
+                    "max_heartrate": a.get("max_heartrate"),
+                    "calories": a.get("calories"),
+                    "kudos_count": a.get("kudos_count", 0),
+                    "has_insights": bool(a.get("insights")),
+                }
+
+            return {
+                "stats": sport_stats,
+                "notable_activities": {
+                    "longest_activity": summarize_activity(longest),
+                    "fastest_activity": summarize_activity(fastest),
+                    "most_elevation_activity": summarize_activity(most_elev),
+                },
             }
-        
-        fastest_summary = None
-        if fastest_activity:
-            fastest_summary = {
-                "id": str(fastest_activity["_id"]),
-                "strava_id": fastest_activity["strava_id"],
-                "name": fastest_activity["name"],
-                "distance": fastest_activity["distance"],
-                "moving_time": fastest_activity["moving_time"],
-                "total_elevation_gain": fastest_activity["total_elevation_gain"],
-                "activity_type": fastest_activity["activity_type"],
-                "start_date": fastest_activity["start_date"],
-                "average_speed": fastest_activity.get("average_speed"),
-                "max_speed": fastest_activity.get("max_speed"),
-                "average_heartrate": fastest_activity.get("average_heartrate"),
-                "max_heartrate": fastest_activity.get("max_heartrate"),
-                "calories": fastest_activity.get("calories"),
-                "kudos_count": fastest_activity.get("kudos_count", 0),
-                "has_insights": bool(fastest_activity.get("insights"))
-            }
-        
-        most_elevation_summary = None
-        if most_elevation_activity:
-            most_elevation_summary = {
-                "id": str(most_elevation_activity["_id"]),
-                "strava_id": most_elevation_activity["strava_id"],
-                "name": most_elevation_activity["name"],
-                "distance": most_elevation_activity["distance"],
-                "moving_time": most_elevation_activity["moving_time"],
-                "total_elevation_gain": most_elevation_activity["total_elevation_gain"],
-                "activity_type": most_elevation_activity["activity_type"],
-                "start_date": most_elevation_activity["start_date"],
-                "average_speed": most_elevation_activity.get("average_speed"),
-                "max_speed": most_elevation_activity.get("max_speed"),
-                "average_heartrate": most_elevation_activity.get("average_heartrate"),
-                "max_heartrate": most_elevation_activity.get("max_heartrate"),
-                "calories": most_elevation_activity.get("calories"),
-                "kudos_count": most_elevation_activity.get("kudos_count", 0),
-                "has_insights": bool(most_elevation_activity.get("insights"))
-            }
-        
-        return JSONResponse({
-            "stats": {
-                "total_activities": stats["total_activities"],
-                "total_distance": stats["total_distance"],
-                "total_time": stats["total_time"],
-                "total_elevation": stats["total_elevation"],
-                "total_calories": stats["total_calories"],
-                "activities_by_type": stats["activities_by_type"],
-                "average_distance": stats["average_distance"],
-                "average_time": stats["average_time"]
-            },
-            "notable_activities": {
-                "longest_activity": longest_summary,
-                "fastest_activity": fastest_summary,
-                "most_elevation_activity": most_elevation_summary
-            }
-        })
+
+        run_summary = await build_sport_summary("Run")
+        ride_summary = await build_sport_summary("Ride")
+        swim_summary = await build_sport_summary("Swim")
+
+        return JSONResponse(
+            to_json_serializable(
+                {
+                    "date_range": {
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "days_back": 30,
+                    },
+                    "run": run_summary,
+                    "ride": ride_summary,
+                    "swim": swim_summary,
+                }
+            )
+        )
     except HTTPException:
         raise
     except Exception as e:

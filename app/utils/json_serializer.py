@@ -18,14 +18,14 @@ def serialize_object_id(obj: Any) -> str:
         return str(obj)
     return obj
 
-def serialize_mongodb_document(doc: Any) -> Any:
-    """Convert MongoDB document to JSON-serializable format"""
+def to_json_serializable(doc: Any) -> Any:
+    """Convert nested structures containing datetime/ObjectId to JSON-serializable primitives"""
     if not doc:
         return doc
     
     if isinstance(doc, list):
         # Handle lists
-        return [serialize_mongodb_document(item) for item in doc]
+        return [to_json_serializable(item) for item in doc]
     elif isinstance(doc, dict):
         # Handle dictionaries
         serialized = {}
@@ -35,9 +35,9 @@ def serialize_mongodb_document(doc: Any) -> Any:
             elif isinstance(value, ObjectId):
                 serialized[key] = serialize_object_id(value)
             elif isinstance(value, dict):
-                serialized[key] = serialize_mongodb_document(value)
+                serialized[key] = to_json_serializable(value)
             elif isinstance(value, list):
-                serialized[key] = serialize_mongodb_document(value)
+                serialized[key] = to_json_serializable(value)
             else:
                 serialized[key] = value
         return serialized
@@ -69,7 +69,7 @@ def serialize_user(user: Dict[str, Any]) -> Dict[str, Any]:
         "sex": user.get("sex"),
         "profile": user.get("profile"),
         "profile_medium": user.get("profile_medium"),
-        "milestones": serialize_mongodb_document(user.get("milestones", [])),
+        "milestones": to_json_serializable(user.get("milestones", [])),
         "created_at": serialize_datetime(user.get("created_at")),
         "updated_at": serialize_datetime(user.get("updated_at"))
     }

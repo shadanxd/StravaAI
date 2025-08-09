@@ -222,10 +222,23 @@ async def get_user_activities(
     activities = await cursor.to_list(length=per_page)
     return activities
 
-async def get_user_activity_stats(user_id: int) -> Dict[str, Any]:
-    """Get activity statistics for a user"""
+async def get_user_activity_stats(
+    user_id: int,
+    activity_type: Optional[str] = None,
+    after: Optional[datetime] = None,
+    before: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Get activity statistics for a user with optional filters."""
+    match: Dict[str, Any] = {"user_id": user_id}
+    if activity_type:
+        match["activity_type"] = activity_type
+    if after:
+        match.setdefault("start_date", {})["$gte"] = after
+    if before:
+        match.setdefault("start_date", {})["$lte"] = before
+
     pipeline = [
-        {"$match": {"user_id": user_id}},
+        {"$match": match},
         {
             "$group": {
                 "_id": None,
@@ -234,15 +247,12 @@ async def get_user_activity_stats(user_id: int) -> Dict[str, Any]:
                 "total_time": {"$sum": "$moving_time"},
                 "total_elevation": {"$sum": "$total_elevation_gain"},
                 "total_calories": {"$sum": {"$ifNull": ["$calories", 0]}},
-                "activities_by_type": {
-                    "$push": "$activity_type"
-                }
             }
         }
     ]
-    
+
     result = await activities_collection.aggregate(pipeline).to_list(length=1)
-    
+
     if not result:
         return {
             "total_activities": 0,
@@ -250,56 +260,84 @@ async def get_user_activity_stats(user_id: int) -> Dict[str, Any]:
             "total_time": 0,
             "total_elevation": 0,
             "total_calories": 0,
-            "activities_by_type": {},
             "average_distance": 0,
-            "average_time": 0
+            "average_time": 0,
         }
-    
+
     stats = result[0]
-    
-    # Calculate activities by type
-    activities_by_type = {}
-    for activity_type in stats["activities_by_type"]:
-        activities_by_type[activity_type] = activities_by_type.get(activity_type, 0) + 1
-    
-    # Calculate averages
+
     total_activities = stats["total_activities"]
     average_distance = stats["total_distance"] / total_activities if total_activities > 0 else 0
     average_time = stats["total_time"] / total_activities if total_activities > 0 else 0
-    
+
     return {
         "total_activities": total_activities,
         "total_distance": stats["total_distance"],
         "total_time": stats["total_time"],
         "total_elevation": stats["total_elevation"],
         "total_calories": stats["total_calories"],
-        "activities_by_type": activities_by_type,
         "average_distance": average_distance,
-        "average_time": average_time
+        "average_time": average_time,
     }
 
-async def get_user_longest_activity(user_id: int) -> Optional[Dict[str, Any]]:
-    """Get user's longest activity by distance"""
-    activity = await activities_collection.find_one(
-        {"user_id": user_id},
-        sort=[("distance", -1)]
-    )
+async def get_user_longest_activity(
+    user_id: int,
+    activity_type: Optional[str] = None,
+    after: Optional[datetime] = None,
+    before: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get user's longest activity by distance with optional filters."""
+    query: Dict[str, Any] = {"user_id": user_id}
+    if activity_type:
+        query["activity_type"] = activity_type
+    if after or before:
+        query["start_date"] = {}
+        if after:
+            query["start_date"]["$gte"] = after
+        if before:
+            query["start_date"]["$lte"] = before
+    activity = await activities_collection.find_one(query, sort=[("distance", -1)])
     return activity
 
-async def get_user_fastest_activity(user_id: int) -> Optional[Dict[str, Any]]:
-    """Get user's fastest activity by average speed"""
-    activity = await activities_collection.find_one(
-        {"user_id": user_id, "average_speed": {"$exists": True, "$ne": None}},
-        sort=[("average_speed", -1)]
-    )
+async def get_user_fastest_activity(
+    user_id: int,
+    activity_type: Optional[str] = None,
+    after: Optional[datetime] = None,
+    before: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get user's fastest activity by average speed with optional filters."""
+    query: Dict[str, Any] = {
+        "user_id": user_id,
+        "average_speed": {"$exists": True, "$ne": None},
+    }
+    if activity_type:
+        query["activity_type"] = activity_type
+    if after or before:
+        query["start_date"] = {}
+        if after:
+            query["start_date"]["$gte"] = after
+        if before:
+            query["start_date"]["$lte"] = before
+    activity = await activities_collection.find_one(query, sort=[("average_speed", -1)])
     return activity
 
-async def get_user_most_elevation_activity(user_id: int) -> Optional[Dict[str, Any]]:
-    """Get user's activity with most elevation gain"""
-    activity = await activities_collection.find_one(
-        {"user_id": user_id},
-        sort=[("total_elevation_gain", -1)]
-    )
+async def get_user_most_elevation_activity(
+    user_id: int,
+    activity_type: Optional[str] = None,
+    after: Optional[datetime] = None,
+    before: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
+    """Get user's activity with most elevation gain with optional filters."""
+    query: Dict[str, Any] = {"user_id": user_id}
+    if activity_type:
+        query["activity_type"] = activity_type
+    if after or before:
+        query["start_date"] = {}
+        if after:
+            query["start_date"]["$gte"] = after
+        if before:
+            query["start_date"]["$lte"] = before
+    activity = await activities_collection.find_one(query, sort=[("total_elevation_gain", -1)])
     return activity
 
 async def sync_user_activities(user_id: int, activities: List[Dict[str, Any]]) -> Dict[str, int]:
