@@ -23,15 +23,27 @@ The Analytics API is responsible for delivering real-time metrics, trends, and m
 
 ### Recommended MVP Approach
 - Implement core analytics endpoints using MongoDB aggregation pipelines for real-time metrics and trends.
-- For heavier analytics (e.g., milestone progress), consider precomputing results with background jobs and caching them.
-- Design endpoints to be flexible for future AI-driven analytics (e.g., allow filtering by sport_type, time period).
+- **Very Important** Design endpoints to be flexible for future AI-driven analytics (e.g., allow filtering by sport_type, time period).
 - Ensure API responses are structured for easy frontend and AI consumption.
+- **Very Important** Check activity routes, activities model and user model to understand type of data we have to process and provide the both frontend and AI model for insight generation
+
+- **Very Important** Keep Sports and AI data analytics approach but do not overcomplicate analytics
 
 ## Executive Checklist
-- [ ] Implement `/api/analytics/dashboard` endpoint (summary, trends, milestones)
-- [ ] Implement `/api/analytics/trends` endpoint (trend analysis by metric, sport_type, period)
-- [ ] Implement `/api/analytics/milestones` endpoint (milestone progress)
-- [ ] Use MongoDB aggregation pipelines for real-time analytics
-- [ ] Set up background jobs for precomputing heavy analytics (if needed)
-- [ ] Structure API responses for frontend and AI modules
-- [ ] Document API endpoints and response formats
+- [x] Implement `/api/analytics/dashboard` endpoint (summary, milestones)
+- [x] Implement `/api/analytics/trends` endpoint (trend analysis by metric, sport_type, period)
+- [x] Use MongoDB aggregation pipelines for real-time analytics
+- [x] Structure API responses for frontend and AI modules
+- [x] Document API endpoints and response formats
+
+## Implemented Endpoints (MVP)
+
+### GET `/api/analytics/dashboard`
+- Returns overall summary and per-sport breakdown for the authenticated user for a configurable date range.
+- Query params: `days_back` (int, default 30, 1-365)
+- Response keys: `date_range`, `summary`, `by_sport`, `milestones`
+
+### GET `/api/analytics/trends`
+- Returns time series aggregated by `day|week|month` for metric `distance|time|elevation|calories|count`.
+- Query params: `metric` (str), `period` (str), `activity_type` (optional str), `days_back` (int, default 90, 1-730)
+- Response keys: `date_range`, `metric`, `period`, `activity_type`, `series`

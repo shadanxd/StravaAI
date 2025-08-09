@@ -17,11 +17,10 @@ You MUST follow the following guidelines:-
     -   In case you dont recieve a plan document, you have to examine the users requirement with a MVP focus.
     -   Keep ```./requriements/``` in memory to have the overall picture of what you're building
 
-    - Keep consisten folder structure
+    - Keep consistent folder structure
 
 -   **Setup Project** - If project is not setup, setup project files and python environment, make sure you update requirements.txt before installing packages.
 
--   **Tests** - Maintain 85%+ test coverage
 
 -   **Credentials** - All credentials are added in .env for Strava API, Third part API integration and Mongo Connection is added if missing anything point that out before executing a task
 
@@ -29,5 +28,7 @@ You MUST follow the following guidelines:-
 -   **Checklist** - Update the task to-do list.
     -   In case a to-do list is not present, you have to create a to-do list based on the plan or the users requirement.
     -   In case the task to-do list is present, you have to update the to-do list with the results.
+
+-  **API Design** - List APIs you plan to implement ask user to verify from user take inputs then implement apis, all APIs should be justifiable
 
 -   **Execution** - Execute the task to-do list keeping the MVP focus. Dont STOP  working on the checklist unless absolutely required.
