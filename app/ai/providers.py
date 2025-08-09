@@ -26,10 +26,11 @@ class AIConfig:
 def load_ai_config() -> AIConfig:
     provider = os.getenv("AI_PROVIDER", "openai")
     model = os.getenv("AI_MODEL", "gpt-4o-mini")
-    api_key = os.getenv("OPENAI_API_KEY", "") if provider == "openai" else os.getenv("AI_API_KEY", "")
-    if not api_key:
-        # Leave it empty; callers can fail gracefully if disabled.
-        api_key = ""
+    # Use LiteLLM-native env keys
+    if provider.lower() == "google":
+        api_key = os.getenv("GEMINI_API_KEY", "")
+    else:
+        api_key = os.getenv("OPENAI_API_KEY", "")
     return AIConfig(provider=provider, model=model, api_key=api_key)
 
 
@@ -45,23 +46,7 @@ class AIClient:
         self.config = config or load_ai_config()
 
     async def generate_json(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
-        """Generate a JSON-like dict based on prompts.
-
-        MVP implementation is intentionally a stub to avoid external dependencies.
-        If `OPENAI_API_KEY` (or provider key) is missing, we return a deterministic
-        fallback suitable for demos and tests. Replace with real HTTP calls later.
-        """
-        if not self.config.api_key:
-            # Fallback deterministic mock output
-            return {
-                "summary": "Solid session focusing on aerobic base.",
-                "coach_tips": [
-                    "Keep cadence smooth and controlled.",
-                    "Fuel earlier for longer efforts."
-                ],
-                "tags": ["endurance"],
-                "model": f"mock:{self.config.provider}:{self.config.model}",
-            }
+        """Generate a JSON-like dict based on prompts via LiteLLM only."""
 
         provider = self.config.provider.lower()
         api_key = self.config.api_key
@@ -89,7 +74,12 @@ class AIClient:
                 response_format={"type": "json_object"},
             )
             content = resp["choices"][0]["message"]["content"]
-            return json.loads(content)
+            payload = json.loads(content)
+            # Ensure model is present even if the LLM didn't include it
+            if not isinstance(payload, dict):
+                payload = {"summary": str(payload)}
+            payload.setdefault("model", resp.get("model") or model_name)
+            return payload
         except Exception:
             # Fallback deterministic output if provider call fails
             return {
