@@ -14,6 +14,28 @@ StravaAI connects to Strava via OAuth, securely stores tokens, syncs activities 
 - Analytics: dashboard summary, by-sport breakdowns, trend time series
 - AI insights: per-activity insight generation and period summaries
 
+### AI insights example
+An example of a generated insight payload returned by the insights endpoints:
+
+```json
+{
+  "summary": "Shadan completed 6 activities over 10 days, covering 12.2 km in 3 hours 12 minutes. This included 2 runs totaling 8.02 km and 4 swims totaling 4.2 km. The running sessions averaged 4.01 km, while swimming sessions averaged 1.05 km.",
+  "coach_tips": [
+    "Consider increasing your total swimming volume to better balance with your running distance.",
+    "Introduce varied running paces, such as interval training or tempo runs, to enhance speed and endurance.",
+    "Ensure adequate recovery between sessions to maximize adaptation and performance."
+  ],
+  "tags": [
+    "running",
+    "swimming",
+    "mixed_training",
+    "endurance"
+  ],
+  "model": "gemini-2.5-flash",
+  "generated_at": "2025-08-09T17:34:35.143628"
+}
+```
+
 ## Requirements
 - Python 3.10+
 - MongoDB 5.0+ running locally or reachable via `MONGODB_URI`
